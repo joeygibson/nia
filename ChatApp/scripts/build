@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+
+nim c -o:client --threads:on src/client.nim
+
