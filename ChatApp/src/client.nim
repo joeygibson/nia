@@ -1,4 +1,15 @@
-import os, threadpool
+import asyncdispatch, asyncnet, os, threadpool
+import protocol
+
+proc connect(socket: AsyncSocket, serverAddr: string) {.async.} =
+    echo("Connecting to ", serverAddr)
+    await socket.connect(serverAddr, 7687.Port)
+    echo("Connected!")
+
+    while true:
+        let line = await socket.recvLine()
+        let parsed = parseMessage(line)
+        echo(parsed.username, " said ", parsed.message)
 
 echo("Chat application started...")
 
@@ -8,8 +19,16 @@ if paramCount() == 0:
 let serverAddr = paramStr(1)
 echo("Connecting to ", serverAddr)
 
+var socket = newAsyncSocket()
+asyncCheck connect(socket, serverAddr)
+
+var messageFlowVar = spawn stdin.readLine()
+
 while true:
-    let message = spawn stdin.readLine()
-    # Adding `spawn` makes it run in another thread
-    # Since `message` won't be immediately available, adding `^` to `message` is required
-    echo("Sending ", ^message, " to ", serverAddr)
+    if messageFlowVar.isReady():
+        let message = createMessage("Anonymous", ^messageFlowVar)
+
+        asyncCheck socket.send(message)
+        messageFlowVar = spawn stdin.readLine()
+
+    asyncdispatch.poll()
